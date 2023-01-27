@@ -87,10 +87,13 @@ if __name__ == '__main__':
 
     # get default config and overrides from the command line, if any
     config = get_config()
-    config.merge_from_args(sys.argv[1:])
     print(config)
     setup_logging(config)
     set_seed(config.system.seed)
+    # model can be specified on the command line
+    load_model = len(sys.argv) > 1
+    if load_model:
+        model_path = sys.argv[1]
 
     # construct the training dataset
     text = open('input.txt', 'r').read() # don't worry we won't run out of file handles
@@ -103,6 +106,18 @@ if __name__ == '__main__':
 
     # construct the trainer object
     trainer = Trainer(config.trainer, model, train_dataset)
+
+
+    if load_model:
+        model.load_state_dict(torch.load(model_path))
+        print("Loaded model from: " + model_path)
+        while True:
+            print("-"*10)
+            prompt = input("\t>>Enter prompt: ")
+            x = torch.tensor([train_dataset.stoi[s] for s in prompt], dtype=torch.long)[None,...].to(trainer.device)
+            y = model.generate(x, 100, temperature=1.0, do_sample=True, top_k=10)[0]
+            completion = ''.join([train_dataset.itos[int(i)] for i in y])
+            print(completion)
 
     # iteration callback
     def batch_end_callback(trainer):
